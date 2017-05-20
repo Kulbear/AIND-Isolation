@@ -13,29 +13,31 @@ class SearchTimeout(Exception):
 def custom_score(game, player):
     """Calculate the heuristic value of a game state from the point of view
     of the given player.
-
     This should be the best heuristic function for your project submission.
-
     Note: this function should be called from within a Player instance as
     `self.score()` -- you should not need to call this function directly.
-
     Parameters
     ----------
     game : `isolation.Board`
         An instance of `isolation.Board` encoding the current state of the
         game (e.g., player locations and blocked cells).
-
     player : object
         A player instance in the current game (i.e., an object corresponding to
         one of the player objects `game.__player_1__` or `game.__player_2__`.)
-
     Returns
     -------
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
-    raise NotImplementedError
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    my_moves = len(game.get_legal_moves(player))
+    their_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    return float(my_moves - (2 * their_moves))
 
 
 def custom_score_2(game, player):
@@ -60,8 +62,13 @@ def custom_score_2(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
-    raise NotImplementedError
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    return float(len(game.get_legal_moves(player)))
 
 
 def custom_score_3(game, player):
@@ -86,8 +93,15 @@ def custom_score_3(game, player):
     float
         The heuristic value of the current game state to the specified player.
     """
-    # TODO: finish this function!
-    raise NotImplementedError
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    return float((h - y) ** 2 + (w - x) ** 2)
 
 
 class IsolationPlayer:
@@ -112,6 +126,7 @@ class IsolationPlayer:
         positive value large enough to allow the function to return before the
         timer expires.
     """
+
     def __init__(self, search_depth=3, score_fn=custom_score, timeout=10.):
         self.search_depth = search_depth
         self.score = score_fn
@@ -209,11 +224,44 @@ class MinimaxPlayer(IsolationPlayer):
                 each helper function or else your agent will timeout during
                 testing.
         """
+
+        def max_value(state, d):
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
+            if d == 1:
+                return self.score(state, self)
+
+            v = -float('inf')
+            for action in state.get_legal_moves():
+                v = max(v, min_value(state.forecast_move(action), d - 1))
+
+            return v
+
+        def min_value(state, d):
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
+            if d == 1:
+                return self.score(state, self)
+
+            v = float('inf')
+            for action in state.get_legal_moves():
+                v = min(v, max_value(state.forecast_move(action), d - 1))
+
+            return v
+
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        highest_score = -float("inf")
+        base_move = (-1, -1)
+
+        for candidate_action in game.get_legal_moves():
+            score = min_value(game.forecast_move(candidate_action), depth)
+            if score > highest_score:
+                highest_score = score
+                base_move = candidate_action
+
+        return base_move
 
 
 class AlphaBetaPlayer(IsolationPlayer):
