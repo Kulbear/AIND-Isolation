@@ -3,6 +3,7 @@ test your agent's strength against a set of known agents using tournament.py
 and include the results in your report.
 """
 import random
+import math
 
 
 class SearchTimeout(Exception):
@@ -35,9 +36,10 @@ def custom_score(game, player):
     if game.is_winner(player):
         return float("inf")
 
-    my_moves = len(game.get_legal_moves(player))
-    their_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(my_moves - (2 * their_moves))
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    a, b = game.get_player_location(game.get_opponent(player))
+    return - float((h - y) ** 2 + (w - x) ** 2) + float((h - a) ** 2 + (w - b) ** 2)
 
 
 def custom_score_2(game, player):
@@ -68,7 +70,22 @@ def custom_score_2(game, player):
     if game.is_winner(player):
         return float("inf")
 
-    return float(len(game.get_legal_moves(player)))
+    own_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
+
+    # Check if the player can win in the next round
+    if len(opp_moves) == 1 and opp_moves[0] in own_moves:
+        return -float("inf")
+
+    own_moves = len(own_moves)
+    opp_moves = len(opp_moves)
+
+    base_score = own_moves - opp_moves
+
+    w, h = game.width / 2., game.height / 2.
+    y, x = game.get_player_location(player)
+    return base_score - 1. / max(game.move_count, 1) * math.sqrt(
+        float((h - y) ** 2 + (w - x) ** 2))
 
 
 def custom_score_3(game, player):
@@ -99,9 +116,9 @@ def custom_score_3(game, player):
     if game.is_winner(player):
         return float("inf")
 
-    w, h = game.width / 2., game.height / 2.
-    y, x = game.get_player_location(player)
-    return float((h - y) ** 2 + (w - x) ** 2)
+    my_moves = len(game.get_legal_moves(player))
+    their_moves = len(game.get_legal_moves(game.get_opponent(player)))
+    return float(my_moves - (2 * their_moves))
 
 
 class IsolationPlayer:
@@ -225,27 +242,27 @@ class MinimaxPlayer(IsolationPlayer):
                 testing.
         """
 
-        def max_value(state, d):
+        def max_value(state, depth):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
-            if d == 1:
+            if depth == 1:
                 return self.score(state, self)
 
             v = -float('inf')
             for action in state.get_legal_moves():
-                v = max(v, min_value(state.forecast_move(action), d - 1))
+                v = max(v, min_value(state.forecast_move(action), depth - 1))
 
             return v
 
-        def min_value(state, d):
+        def min_value(state, depth):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
-            if d == 1:
+            if depth == 1:
                 return self.score(state, self)
 
             v = float('inf')
             for action in state.get_legal_moves():
-                v = min(v, max_value(state.forecast_move(action), d - 1))
+                v = min(v, max_value(state.forecast_move(action), depth - 1))
 
             return v
 
@@ -302,8 +319,20 @@ class AlphaBetaPlayer(IsolationPlayer):
         """
         self.time_left = time_left
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        legal_moves = game.get_legal_moves()
+        depth = 0
+
+        if not legal_moves:
+            return -1, -1
+
+        try:
+            while time_left() > self.TIMER_THRESHOLD:
+                depth += 1
+                best_move = self.alphabeta(game, depth)
+        except SearchTimeout:
+            pass
+
+        return best_move
 
     def alphabeta(self, game, depth, alpha=float("-inf"), beta=float("inf")):
         """Implement depth-limited minimax search with alpha-beta pruning as
@@ -350,8 +379,49 @@ class AlphaBetaPlayer(IsolationPlayer):
                 each helper function or else your agent will timeout during
                 testing.
         """
+        def min_value(game, depth, alpha, beta):
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
+
+            if depth == 1:
+                return self.score(game, self)
+
+            v = float("inf")
+            for action in game.get_legal_moves():
+                v = min(v, max_value(game.forecast_move(action), depth - 1, alpha, beta))
+                if v <= alpha:
+                    return v
+                beta = min(beta, v)
+            return v
+
+        def max_value(game, depth, alpha, beta):
+            if self.time_left() < self.TIMER_THRESHOLD:
+                raise SearchTimeout()
+
+            if depth == 1:
+                return self.score(game, self)
+
+            v = -float("inf")
+            for action in game.get_legal_moves():
+                v = max(v, min_value(game.forecast_move(action), depth - 1, alpha, beta))
+                if v >= beta:
+                    return v
+                alpha = max(alpha, v)
+            return v
+
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
-        # TODO: finish this function!
-        raise NotImplementedError
+        v = -float("inf")
+        moves = []
+        scores = []
+
+        for move in game.get_legal_moves():
+            score = min_value(game.forecast_move(move), depth, alpha, beta)
+            v = max(v, score)
+            alpha = max(alpha, v)
+            moves.append(move)
+            scores.append(score)
+
+        best_move = moves[scores.index(max(scores))]
+        return best_move
