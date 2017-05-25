@@ -36,10 +36,20 @@ def custom_score(game, player):
     if game.is_winner(player):
         return float("inf")
 
-    w, h = game.width / 2., game.height / 2.
+    own_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
+
+    # Check if the player can win in the next round
+    if len(opp_moves) == 1 and opp_moves[0] in own_moves:
+        return -float("inf")
+
+    base_score = len(own_moves) - len(opp_moves)
+
+    w, h = game.width / 2, game.height / 2
     y, x = game.get_player_location(player)
     a, b = game.get_player_location(game.get_opponent(player))
-    return - float((h - y) ** 2 + (w - x) ** 2) + float((h - a) ** 2 + (w - b) ** 2)
+    return base_score - 1. / max(game.move_count, 1) * math.sqrt(
+        float((h - y) ** 2 + (w - x) ** 2) + float((h - a) ** 2 + (w - b) ** 2))
 
 
 def custom_score_2(game, player):
@@ -77,12 +87,9 @@ def custom_score_2(game, player):
     if len(opp_moves) == 1 and opp_moves[0] in own_moves:
         return -float("inf")
 
-    own_moves = len(own_moves)
-    opp_moves = len(opp_moves)
+    base_score = len(own_moves) - len(opp_moves)
 
-    base_score = own_moves - opp_moves
-
-    w, h = game.width / 2., game.height / 2.
+    w, h = game.width / 2, game.height / 2
     y, x = game.get_player_location(player)
     return base_score - 1. / max(game.move_count, 1) * math.sqrt(
         float((h - y) ** 2 + (w - x) ** 2))
@@ -116,9 +123,20 @@ def custom_score_3(game, player):
     if game.is_winner(player):
         return float("inf")
 
-    my_moves = len(game.get_legal_moves(player))
-    their_moves = len(game.get_legal_moves(game.get_opponent(player)))
-    return float(my_moves - (2 * their_moves))
+    own_moves = game.get_legal_moves(player)
+    opp_moves = game.get_legal_moves(game.get_opponent(player))
+
+    # Check if the player can win in the next roun
+    if len(opp_moves) == 1 and opp_moves[0] in own_moves:
+        return -float("inf")
+
+    base_score = len(own_moves) - len(opp_moves)
+
+    w, h = game.width / 2, game.height / 2
+    y, x = game.get_player_location(player)
+    a, b = game.get_player_location(game.get_opponent(player))
+
+    return base_score - float((h - y) ** 2 + (w - x) ** 2) + float((h - a) ** 2 + (w - b) ** 2)
 
 
 class IsolationPlayer:
@@ -242,27 +260,27 @@ class MinimaxPlayer(IsolationPlayer):
                 testing.
         """
 
-        def max_value(state, depth):
+        def max_value(game, depth):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
-            if depth == 1:
-                return self.score(state, self)
+            if depth <= 1:
+                return self.score(game, self)
 
             v = -float('inf')
-            for action in state.get_legal_moves():
-                v = max(v, min_value(state.forecast_move(action), depth - 1))
+            for action in game.get_legal_moves():
+                v = max(v, min_value(game.forecast_move(action), depth - 1))
 
             return v
 
-        def min_value(state, depth):
+        def min_value(game, depth):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
-            if depth == 1:
-                return self.score(state, self)
+            if depth <= 1:
+                return self.score(game, self)
 
             v = float('inf')
-            for action in state.get_legal_moves():
-                v = min(v, max_value(state.forecast_move(action), depth - 1))
+            for action in game.get_legal_moves():
+                v = min(v, max_value(game.forecast_move(action), depth - 1))
 
             return v
 
@@ -325,6 +343,7 @@ class AlphaBetaPlayer(IsolationPlayer):
         if not legal_moves:
             return -1, -1
 
+        best_move = legal_moves[0]
         try:
             while time_left() > self.TIMER_THRESHOLD:
                 depth += 1
@@ -379,11 +398,12 @@ class AlphaBetaPlayer(IsolationPlayer):
                 each helper function or else your agent will timeout during
                 testing.
         """
+
         def min_value(game, depth, alpha, beta):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
 
-            if depth == 1:
+            if depth <= 1:
                 return self.score(game, self)
 
             v = float("inf")
@@ -398,7 +418,7 @@ class AlphaBetaPlayer(IsolationPlayer):
             if self.time_left() < self.TIMER_THRESHOLD:
                 raise SearchTimeout()
 
-            if depth == 1:
+            if depth <= 1:
                 return self.score(game, self)
 
             v = -float("inf")
@@ -424,4 +444,5 @@ class AlphaBetaPlayer(IsolationPlayer):
             scores.append(score)
 
         best_move = moves[scores.index(max(scores))]
+
         return best_move
