@@ -126,7 +126,7 @@ def custom_score_3(game, player):
     own_moves = game.get_legal_moves(player)
     opp_moves = game.get_legal_moves(game.get_opponent(player))
 
-    # Check if the player can win in the next roun
+    # Check if the player can win in the next round
     if len(opp_moves) == 1 and opp_moves[0] in own_moves:
         return -float("inf")
 
